@@ -1,0 +1,70 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Differential tests of the M3 layer code (mln_renderer buckets, layouts,
+# paint property binders, polyline/fill generators, line atlas) against the
+# C++ core, which runs as an oracle process (oracle_main.cpp).
+
+cc_library(
+    name = "reference",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["reference.cpp"],
+    copts = [
+        "-std=c++20",
+        # mbgl-core is built without RTTI.
+        "-fno-rtti",
+        # The MAPLIBRE_FLAGS mbgl-core is compiled with (bazel/flags.bzl):
+        # mln::unordered_map is ankerl::unordered_dense there, and the
+        # renderer types in these headers must be the same types.
+        "-DMBGL_USE_GLES2=1",
+        "-DMLN_USE_UNORDERED_DENSE",
+        "-Wno-deprecated-declarations",
+    ],
+    alwayslink = True,
+    deps = [
+        "@maplibre//:mbgl-core",
+        "@maplibre//platform/default:mbgl-default",
+    ],
+)
+
+cc_binary(
+    name = "layers_oracle",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["oracle_main.cpp"],
+    copts = ["-std=c++20"],
+    # Dynamic mode, as cc_test links the C++ test binaries (see
+    # //difftest/expression:expression_oracle).
+    linkstatic = False,
+    deps = [
+        ":reference",
+        "@maplibre//platform/linux:impl",
+    ],
+)
+
+rust_test(
+    name = "layers_difftest",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["layers_difftest.rs"],
+    data = [":layers_oracle"],
+    deps = [
+        "@next_crates//:mln-rs-conversion",
+        "@next_crates//:mln-rs-gfx",
+        "@next_crates//:mln-rs-map-types",
+        "@next_crates//:mln-rs-renderer",
+        "@next_crates//:mln-rs-style",
+        "@next_crates//:mln-rs-style-types",
+        "@next_crates//:mln-rs-tile-id",
+        "@next_crates//:mln-rs-util",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)

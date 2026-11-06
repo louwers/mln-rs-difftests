@@ -1,0 +1,25 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Differential tests: //vendor/nunicode against the C nunicode of the C++
+# core.
+
+cc_library(
+    name = "reference",
+    srcs = ["reference.cpp"],
+    copts = ["-std=c++20"],
+    deps = ["@maplibre//vendor:nunicode"],
+)
+
+rust_test(
+    name = "nunicode_difftest",
+    size = "medium",
+    srcs = ["nunicode_difftest.rs"],
+    data = ["@maplibre//metrics:expression-test-files"],
+    link_deps = [":reference"],
+    deps = [
+        "@next_crates//:mln-rs-nunicode",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)

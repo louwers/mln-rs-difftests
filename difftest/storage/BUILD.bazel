@@ -1,0 +1,65 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Differential tests: //crates/mln_storage (OfflineDatabase read path,
+# DatabaseFileSource) and //crates/mln_sprite (parseSprite) against the C++
+# core (mbgl-core + platform/default).
+
+cc_library(
+    name = "reference",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["reference.cpp"],
+    copts = [
+        "-std=c++20",
+        "-fexceptions",
+        "-Wno-deprecated-declarations",
+    ],
+    alwayslink = True,
+    deps = [
+        "@maplibre//:mbgl-core",
+        "@maplibre//platform/default:mbgl-default",
+    ],
+)
+
+# The oracle as a C++ executable (see oracle_main.cpp): the C++ core's
+# vendored SQLite and rusqlite's bundled one can't link into one binary.
+cc_binary(
+    name = "storage_oracle",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["oracle_main.cpp"],
+    copts = ["-std=c++20"],
+    # Dynamic mode, as cc_test links the C++ test binaries (mbgl-core and
+    # mbgl-default reference each other).
+    linkstatic = False,
+    deps = [
+        ":reference",
+        "@maplibre//platform/linux:impl",
+    ],
+)
+
+rust_test(
+    name = "storage_difftest",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "large",
+    srcs = ["storage_difftest.rs"],
+    data = [
+        ":storage_oracle",
+        "@maplibre//metrics:render-test-files",
+        "@maplibre//test:fixtures",
+    ],
+    deps = [
+        "@next_crates//:mln-rs-actor",
+        "@next_crates//:mln-rs-sprite",
+        "@next_crates//:mln-rs-storage",
+        "@next_crates//:mln-rs-util",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:proptest",
+        "@next_crates//:rusqlite",
+    ],
+)

@@ -1,0 +1,16 @@
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Evaluates the georust `earcut` crate as a replacement for //vendor/earcut:
+# compares it with the port (which //difftest/geometry shows is identical to
+# the C++ earcut.hpp) on earcut's fixtures and on generated polygons.
+rust_test(
+    name = "earcut_crate_comparison",
+    srcs = ["earcut_crate_comparison.rs"],
+    aliases = {"@next_crates//:earcut": "earcut_crate"},
+    data = ["@maplibre//vendor:earcut_fixtures"],
+    deps = [
+        "@next_crates//:mln-rs-earcut",
+        "@next_crates//:mln-rs-earcut-test-fixtures",
+        "@next_crates//:earcut",
+    ],
+)

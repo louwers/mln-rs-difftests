@@ -1,0 +1,39 @@
+# Mirrors the settings in ../maplibre-native/.bazelrc that the C++ core build
+# relies on; a dependency module's .bazelrc is not read.
+startup --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1
+common --enable_platform_specific_config
+common --repo_env=DO_NOT_TRACK=1
+build:linux --repo_env=CC=gcc
+build:linux --repo_env=CXX=g++
+
+test --test_output=errors
+
+# The C++ oracle sets -Werror (bazel/flags.bzl) and newer compilers warn where
+# upstream's do not (Apple clang in tile_loader_impl.hpp, clang 21 in
+# vendor/earcut.hpp); keep upstream's warnings non-fatal here.
+build --per_file_copt=external/maplibre.*@-Wno-error
+
+# Several agents/people share one Bazel server on a machine that also runs
+# other heavy work; leave headroom for it.
+build --local_resources=memory=HOST_RAM*.5
+build --local_resources=cpu=HOST_CPUS*.75
+
+# Build the C++ oracle with optimizations to match what ships; the
+# differential tests then also catch -O-dependent float behaviour.
+build:oracle-opt --compilation_mode=opt
+
+# CI (.github/workflows/ci.yml, Ubuntu and macOS runners): clang, all cores,
+# lavapipe for the GPU tests on Linux (wgpu picks Metal on macOS), no network
+# tests. Disk and repository caches come from bazel-contrib/setup-bazel's
+# user bazelrc, so they are not set here (this file would override it).
+build:ci --repo_env=CC=clang
+build:ci --repo_env=CXX=clang++
+build:ci --local_resources=memory=HOST_RAM*.8
+build:ci --local_resources=cpu=HOST_CPUS
+build:ci --test_tag_filters=-requires-network
+# Mesa 26 (ubuntu-26.04 runners) renamed the lavapipe ICD from
+# lvp_icd.x86_64.json to lvp_icd.json (same as the C++ repo's linux-ci.yml).
+build:ci --test_env=VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json
+build:ci --keep_going
+
+try-import %workspace%/user.bazelrc

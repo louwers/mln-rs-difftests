@@ -1,0 +1,23 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# The C++ standard library parts of render-test's Manifest::doShuffle; no
+# mbgl-core needed.
+cc_library(
+    name = "reference",
+    srcs = ["reference.cpp"],
+    copts = ["-std=c++20"],
+)
+
+rust_test(
+    name = "render_test_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["render_test_difftest.rs"],
+    link_deps = [":reference"],
+    deps = [
+        "@next_crates//:mln-rs-render-test",
+        "@next_crates//:proptest",
+    ],
+)

@@ -1,0 +1,59 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+load("//difftest/sqlite:defs.bzl", "ORACLE_SQLITE")
+load(":codegen.bzl", "difftest_sources")
+
+# Differential test of the generated style code (//tools/style-codegen ->
+# crates/mln_style/src/layers, light.rs) against the C++ generated code:
+# for every layer type and every paint/layout property, `getDefaultYyy()`
+# and a set of sample values through `Layer::setProperty` read back with
+# `getProperty` and `serialize()`; the light's properties; and one whole
+# layer per type through `convert<std::unique_ptr<Layer>>`.
+
+# The per-property calls, generated from the same v8.json.
+difftest_sources(
+    name = "generated_sources",
+    cpp = "generated.cpp",
+    rs = "cases.rs",
+    spec = "@maplibre//:scripts/style-spec-reference/v8.json",
+    tool = "@next_crates//:mln-rs-style-codegen__style-codegen",
+)
+
+cc_library(
+    name = "reference",
+    srcs = [
+        "generated.cpp",
+        "generated.hpp",
+        "platform_shims.cpp",
+        "reference.cpp",
+    ],
+    copts = [
+        "-std=c++20",
+        "-fexceptions",
+        # mbgl-core is built without RTTI.
+        "-fno-rtti",
+        "-Wno-deprecated-declarations",
+    ],
+    # platform_shims.cpp defines symbols that mbgl-core needs; linked as a whole
+    # archive they resolve regardless of archive order (C++ link action).
+    alwayslink = True,
+    deps = ["@maplibre//:mbgl-core"],
+)
+
+rust_test(
+    name = "style_codegen_difftest",
+    size = "medium",
+    srcs = [
+        "cases.rs",
+        "style_codegen_difftest.rs",
+    ],
+    crate_root = "style_codegen_difftest.rs",
+    link_deps = ORACLE_SQLITE + [":reference"],
+    deps = [
+        "@next_crates//:mln-rs-conversion",
+        "@next_crates//:mln-rs-style",
+        "@next_crates//:mln-rs-util",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:serde_json",
+    ],
+)

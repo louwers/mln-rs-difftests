@@ -1,0 +1,10 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+# The system zlib (on NixOS: the #linux dev shell's zlib, the same one the C++
+# core links), for the libz-sys crate behind flate2's `zlib` backend, whose
+# build script can't find it inside the build sandbox.
+cc_library(
+    name = "system",
+    linkopts = ["-lz"],
+    visibility = ["//visibility:public"],
+)

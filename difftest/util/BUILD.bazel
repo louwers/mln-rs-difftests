@@ -1,0 +1,59 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+# Differential tests: //crates/mln_math, //crates/mln_util,
+# //vendor/csscolorparser and //vendor/rapidjson against the C++ core.
+
+cc_library(
+    name = "reference",
+    srcs = ["reference.cpp"],
+    copts = ["-std=c++20"],
+    # The tests link only what these util functions need from mbgl-core;
+    # without section GC the C++ link (experimental_use_cc_common_link)
+    # reports the platform symbols (LayerManager, RunLoop, ...) that unused
+    # code in the pulled-in objects references. Apple's ld has no
+    # --gc-sections; rustc already passes its -dead_strip.
+    linkopts = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["-Wl,--gc-sections"],
+    }),
+    deps = ["@maplibre//:mbgl-core"],
+)
+
+# Safe Rust wrappers around :reference, shared by the tests.
+rust_library(
+    name = "reference_ffi",
+    srcs = ["reference_ffi.rs"],
+    link_deps = [":reference"],
+)
+
+[
+    rust_test(
+        name = name,
+        size = "medium",
+        srcs = [name + ".rs"],
+        # Most comparisons are pinned to the Linux oracle (glibc libm/strtod,
+        # x86-64 conversions, FMA contraction): the C++ itself behaves
+        # differently on macOS/arm64. string and geo match there too.
+        target_compatible_with = [] if name in [
+            "string_difftest",
+            "geo_difftest",
+        ] else ["@platforms//os:linux"],
+        deps = [
+            ":reference_ffi",
+            "@next_crates//:mln-rs-math",
+            "@next_crates//:mln-rs-util",
+            "@next_crates//:mln-rs-csscolorparser",
+            "@next_crates//:mln-rs-rapidjson",
+            "@next_crates//:proptest",
+        ],
+    )
+    for name in [
+        "math_difftest",
+        "cstdlib_difftest",
+        "csscolorparser_difftest",
+        "color_difftest",
+        "string_difftest",
+        "geo_difftest",
+    ]
+]

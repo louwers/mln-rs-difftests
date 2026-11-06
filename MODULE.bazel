@@ -1,0 +1,77 @@
+module(name = "mln-rs-difftests")
+
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "rules_rust", version = "0.74.0")
+
+# The C++ MapLibre Native core: the targets under //difftest link it as the
+# reference implementation that the released mln-rs crates must match.
+bazel_dep(name = "maplibre")
+
+# Tracks the sibling checkout, including uncommitted C++ changes. For CI, pin
+# the oracle instead:
+#
+# git_override(
+#     module_name = "maplibre",
+#     remote = "https://github.com/maplibre/maplibre-native.git",
+#     commit = "<sha>",
+#     init_submodules = True,
+# )
+local_path_override(
+    module_name = "maplibre",
+    path = "../maplibre-native",
+)
+
+# Overrides declared by a non-root module are ignored, so the
+# maplibre-tile-spec override from ../maplibre-native/MODULE.bazel must be
+# repeated here. Bazel fetches the commit the C++ repo's submodule pins
+# straight from GitHub, so the vendor/maplibre-tile-spec submodule never has
+# to be checked out (mlt_cpp needs only the in-tree cpp/vendor/fastpfor,
+# none of that repo's own submodules).
+git_override(
+    module_name = "maplibre-tile-spec",
+    remote = "https://github.com/maplibre/maplibre-tile-spec.git",
+    commit = "751ebb1837e4fd03c9074b91fce24727013c1868",
+)
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(edition = "2024")
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+# The released mln-rs crates under test and the third-party crates come from
+# Cargo.toml, at the versions in Cargo.lock. Add or change one there; nothing
+# here changes. The repo is not called "crates" because @maplibre already
+# uses that name for rustutils.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "next_crates",
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = ["//:Cargo.toml"],
+    # Cargo keeps Cargo.lock; Bazel only reads it, and fails if it is out of
+    # date with the manifests (any `cargo` command in the workspace updates
+    # it).
+    skip_cargo_lockfile_overwrite = True,
+)
+
+# flate2's zlib backend (mln-rs's choice, see Cargo.toml) links the system
+# zlib, as the C++ does, instead of building libz-sys's bundled copy.
+crate.annotation(
+    crate = "libz-sys",
+    deps = ["@@//third_party/zlib:system"],
+    gen_build_script = "off",
+    repositories = ["next_crates"],
+)
+
+# The style code generator's binary, for //difftest/style_codegen:
+# @next_crates//:mln-rs-style-codegen__style-codegen.
+crate.annotation(
+    crate = "mln-rs-style-codegen",
+    gen_binaries = ["style-codegen"],
+    repositories = ["next_crates"],
+)
+use_repo(crate, "next_crates")
+
+# The difftests' SQLite (difftest/sqlite).
+include("//difftest/sqlite:sqlite.MODULE.bazel")

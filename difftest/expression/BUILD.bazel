@@ -1,0 +1,85 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Differential tests: //crates/mln_expression against the C++ core.
+
+cc_library(
+    name = "type_reference",
+    srcs = [
+        "type_encoding.hpp",
+        "type_reference.cpp",
+    ],
+    copts = ["-std=c++20"],
+    deps = ["@maplibre//:mbgl-core"],
+)
+
+cc_library(
+    name = "reference",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = [
+        "expression_reference.cpp",
+        "type_encoding.hpp",
+    ],
+    copts = ["-std=c++20"],
+    alwayslink = True,
+
+    deps = [
+        "@maplibre//:mbgl-core",
+        # The Linux platform implementations the expression engine calls
+        # (nunicode collator and case mapping, ICU number formatting, ...).
+        "@maplibre//platform/default:mbgl-default",
+    ],
+)
+
+rust_test(
+    name = "type_difftest",
+    size = "medium",
+    srcs = ["type_difftest.rs"],
+    link_deps = [":type_reference"],
+    deps = ["@next_crates//:mln-rs-expression"],
+)
+
+# The whole-engine oracle as a C++ executable (the Linux platform,
+# mbgl-default + platform/linux, links completely only into C++ executables,
+# which also get the dev shell's library paths); expression_difftest.rs
+# drives it over stdin/stdout.
+cc_binary(
+    name = "expression_oracle",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["oracle_main.cpp"],
+    copts = ["-std=c++20"],
+    # Dynamic mode, as cc_test links the C++ test binaries: mbgl-core and
+    # mbgl-default reference each other, which a single-pass static link of
+    # the two archives does not resolve.
+    linkstatic = False,
+    deps = [
+        ":reference",
+        "@maplibre//platform/linux:impl",
+    ],
+)
+
+rust_test(
+    name = "expression_difftest",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["expression_difftest.rs"],
+    data = [
+        ":expression_oracle",
+        "@maplibre//metrics:expression-test-files",
+    ],
+    deps = [
+        "@next_crates//:mln-rs-conversion",
+        "@next_crates//:mln-rs-expression",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:mln-rs-rapidjson",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)

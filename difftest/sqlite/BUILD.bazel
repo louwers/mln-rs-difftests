@@ -1,0 +1,15 @@
+# The SQLite that rusqlite bundles, as a C library, for the difftests on
+# Linux: a difftest links the C++ oracle, whose mbgl-core brings the C++
+# core's vendored SQLite (3.45), and the port, whose rusqlite brings its
+# bundled SQLite (3.54). rustc puts the oracle's libraries before the Rust
+# crates, and lld resolves rusqlite's references from the earlier SQLite
+# archive, then pulls the bundled one for the newer functions: duplicate
+# symbols. Listed first in link_deps, this archive comes first on the link
+# line, so lld resolves every SQLite reference of both sides from it and
+# pulls neither of the other two. On macOS the
+# oracle uses the system SQLite instead and the duplicate cannot happen.
+alias(
+    name = "sqlite",
+    actual = "@libsqlite3_sys//:sqlite3",
+    visibility = ["//difftest:__subpackages__"],
+)

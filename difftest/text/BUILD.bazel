@@ -1,0 +1,71 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+# Differential tests: //crates/mln_text against the C++ core's text code
+# (HBShaper on HarfBuzz 8.2.0 + FreeType 2.13).
+
+cc_library(
+    name = "reference",
+    srcs = ["reference.cpp"],
+    copts = ["-std=c++20"],
+    # Only the text code of mbgl-core is used; without section GC the C++
+    # link reports the platform symbols unused objects reference. Apple's ld
+    # has no --gc-sections; rustc already passes its -dead_strip.
+    linkopts = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["-Wl,--gc-sections"],
+    }) + [
+        # FreeType is built with FT_CONFIG_OPTION_SYSTEM_ZLIB.
+        "-lz",
+    ],
+    deps = [
+        "@maplibre//:mbgl-core",
+        "@maplibre//vendor:freetype",
+        "@maplibre//vendor:harfbuzz",
+        "@maplibre//vendor:sqlite",
+    ],
+)
+
+# Safe wrappers around :reference and the font set, shared by the tests.
+rust_library(
+    name = "text_reference",
+    srcs = ["text_reference.rs"],
+    data = [
+        "@maplibre//metrics:render-test-files",
+        "@maplibre//vendor:harfbuzz_test_fonts",
+    ],
+    link_deps = [":reference"],
+    deps = ["@next_crates//:flate2"],
+)
+
+[
+    rust_test(
+        name = name,
+        size = "medium",
+        srcs = [name + ".rs"] + (["hb_ucd15_full_gc.rs"] if name == "shaping_difftest" else []),
+        # misc_difftest compares libstdc++ hashing (font stack hashes), which
+        # pins it to the Linux oracle; libc++ on macOS hashes differently.
+        target_compatible_with = ["@platforms//os:linux"] if name == "misc_difftest" else [],
+        data = [
+            "@maplibre//metrics:render-test-files",
+            "@maplibre//test:fixtures",
+            "@maplibre//vendor:harfbuzz_test_fonts",
+        ],
+        deps = [
+            ":text_reference",
+            "@next_crates//:mln-rs-text",
+            "@next_crates//:mln-rs-util",
+            "@next_crates//:flate2",
+            "@next_crates//:harfrust",
+            "@next_crates//:proptest",
+        ],
+    )
+    for name in [
+        "ft_difftest",
+        "glyph_pbf_difftest",
+        "misc_difftest",
+        "rasterize_difftest",
+        "shaping_difftest",
+        "ucd_difftest",
+    ]
+]

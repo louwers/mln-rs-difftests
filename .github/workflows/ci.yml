@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The C++ core the released crates are compared with (MODULE.bazel expects
+  # it at ../maplibre-native): maplibre-native plus the changes that make its
+  # Bazel module usable as a dependency (README.md). The ref is the tip of
+  # that fork's maplibre-native-next-support branch: upstream
+  # maplibre/maplibre-native commit 8e144d0eca082e8350335b2172a6dfdc939b9cef
+  # plus those changes.
+  MAPLIBRE_NATIVE_REPOSITORY: louwers/maplibre-native
+  MAPLIBRE_NATIVE_REF: 4e03abe94cf562b10562c528578d109c7273694d
+
+jobs:
+  # Every difftest, on Linux and macOS (the comparisons pinned to the Linux
+  # oracle are skipped there).
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: mln-rs-difftests
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ env.MAPLIBRE_NATIVE_REPOSITORY }}
+          ref: ${{ env.MAPLIBRE_NATIVE_REF }}
+          path: maplibre-native
+
+      # The C++ oracle (mbgl-core) builds from these; the maplibre-tile-spec
+      # module is fetched from GitHub by MODULE.bazel's git_override and needs
+      # no checkout.
+      - name: Fetch the C++ core's vendored submodules
+        run: git -C maplibre-native submodule update --init --recursive --depth 1 --jobs 8 -- vendor
+
+      - name: Install system packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # libgl-dev, libgles-dev and libx11-dev: the oracles that link
+          # @maplibre//platform/linux:impl.
+          sudo apt-get install -y --no-install-recommends \
+            clang libcurl4-openssl-dev libgl-dev libgles-dev \
+            libicu-dev libjpeg-dev libpng-dev libuv1-dev \
+            libwebp-dev libx11-dev pkg-config zlib1g-dev
+
+      - uses: bazel-contrib/setup-bazel@0.19.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+
+      - name: Test
+        working-directory: mln-rs-difftests
+        run: just ci-test
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testlogs-${{ runner.os }}
+          path: mln-rs-difftests/bazel-testlogs/**/test.log
+          if-no-files-found: ignore
+
+  # The one check for branch protection to require: it fails when a job above
+  # failed or was cancelled.
+  ci-passed:
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-26.04
+    permissions: {}
+    steps:
+      - name: The jobs' results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: echo "$NEEDS"
+
+      - name: Fail if a job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

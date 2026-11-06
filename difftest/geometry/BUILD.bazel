@@ -1,0 +1,271 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+# Differential tests: the ported geometry libraries in //vendor (earcut,
+# geojson-vt, geojson, supercluster, kdbush, polylabel, cheap-ruler,
+# shelf-pack, wagyu, and the libstdc++ algorithms they depend on) against
+# the C++ libraries the core vendors. They are header-only, so each
+# reference compiles them directly instead of linking @maplibre//:mbgl-core.
+
+rust_library(
+    name = "geometry_difftest_support",
+    testonly = True,
+    srcs = ["support.rs"],
+    deps = ["@next_crates//:proptest"],
+)
+
+cc_library(
+    name = "libstdcxx_reference",
+    srcs = ["libstdcxx_reference.cpp"],
+    copts = ["-std=c++20"],
+)
+
+rust_test(
+    name = "libstdcxx_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["libstdcxx_difftest.rs"],
+    link_deps = [":libstdcxx_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-libstdcxx",
+        "@next_crates//:proptest",
+    ],
+)
+
+cc_library(
+    name = "earcut_reference",
+    srcs = ["earcut_reference.cpp"],
+    copts = ["-std=c++20"],
+    deps = [
+        "@maplibre//vendor:earcut.hpp",
+        "@maplibre//vendor:maplibre-native-base",
+    ],
+)
+
+rust_test(
+    name = "earcut_difftest",
+    # The generated polygons hit float differences in the arm64 C++ (FMA
+    # contraction), so the comparison is pinned to the Linux oracle;
+    # earcut_fixtures_difftest stays cross-platform.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["earcut_difftest.rs"],
+    link_deps = [":earcut_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-earcut",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:proptest",
+    ],
+)
+
+rust_test(
+    name = "earcut_fixtures_difftest",
+    size = "medium",
+    srcs = ["earcut_fixtures_difftest.rs"],
+    data = ["@maplibre//vendor:earcut_fixtures"],
+    link_deps = [":earcut_reference"],
+    deps = [
+        "@next_crates//:mln-rs-earcut",
+        "@next_crates//:mln-rs-earcut-test-fixtures",
+        "@next_crates//:mln-rs-geometry",
+    ],
+)
+
+cc_library(
+    name = "geojson_reference",
+    srcs = ["geojson_reference.cpp"],
+    hdrs = ["canonical.hpp"],
+    copts = ["-std=c++20"],
+    deps = [
+        "@maplibre//vendor:maplibre-native-base",
+        "@maplibre//vendor:rapidjson",
+    ],
+)
+
+# Canonical form, FFI wrappers and strategies shared by the geojson and
+# geojson-vt difftests.
+rust_library(
+    name = "geojson_canonical",
+    testonly = True,
+    srcs = ["geojson_canonical.rs"],
+    link_deps = [":geojson_reference"],
+    deps = [
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geojson",
+        "@next_crates//:mln-rs-geojson-vt",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+rust_test(
+    name = "geojson_difftest",
+    size = "medium",
+    srcs = ["geojson_difftest.rs"],
+    deps = [
+        ":geojson_canonical",
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geojson",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+rust_test(
+    name = "geojson_vt_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["geojson_vt_difftest.rs"],
+    deps = [
+        ":geojson_canonical",
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-geojson",
+        "@next_crates//:mln-rs-geojson-vt",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+cc_library(
+    name = "supercluster_reference",
+    srcs = ["supercluster_reference.cpp"],
+    copts = ["-std=c++20"],
+    deps = [
+        ":geojson_reference",
+        "@maplibre//vendor:maplibre-native-base",
+        "@maplibre//vendor:rapidjson",
+        "@maplibre//vendor:supercluster.hpp",
+    ],
+)
+
+rust_test(
+    name = "kdbush_difftest",
+    size = "medium",
+    srcs = ["kdbush_difftest.rs"],
+    link_deps = [":supercluster_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-kdbush",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+rust_test(
+    name = "supercluster_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["supercluster_difftest.rs"],
+    link_deps = [":supercluster_reference"],
+    deps = [
+        ":geojson_canonical",
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geojson",
+        "@next_crates//:mln-rs-supercluster",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+cc_library(
+    name = "misc_reference",
+    srcs = ["misc_reference.cpp"],
+    copts = ["-std=c++20"],
+    deps = [
+        ":geojson_reference",
+        "@maplibre//vendor:maplibre-native-base",
+        "@maplibre//vendor:polylabel",
+        "@maplibre//vendor:rapidjson",
+    ],
+)
+
+rust_test(
+    name = "polylabel_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["polylabel_difftest.rs"],
+    link_deps = [":misc_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:mln-rs-polylabel",
+        "@next_crates//:proptest",
+    ],
+)
+
+rust_test(
+    name = "cheap_ruler_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["cheap_ruler_difftest.rs"],
+    link_deps = [":misc_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-cheap-ruler",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+rust_test(
+    name = "shelf_pack_difftest",
+    size = "medium",
+    srcs = ["shelf_pack_difftest.rs"],
+    link_deps = [":misc_reference"],
+    deps = [
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-shelf-pack",
+        "@next_crates//:proptest",
+        "@next_crates//:serde_json",
+    ],
+)
+
+# The libraries' own fixtures (earcut's: earcut_fixtures_difftest).
+rust_test(
+    name = "fixtures_difftest",
+    # The comparison is pinned to the Linux oracle (libstdc++ order, glibc
+    # libm, FMA contraction): the C++ itself behaves differently on macOS.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["fixtures_difftest.rs"],
+    data = [
+        "@maplibre//vendor:geojson_fixtures",
+        "@maplibre//vendor:geojson_vt_fixtures",
+        "@maplibre//vendor:kdbush_test_source",
+        "@maplibre//vendor:polylabel_fixtures",
+        "@maplibre//vendor:supercluster_fixtures",
+    ],
+    link_deps = [
+        ":misc_reference",
+        ":supercluster_reference",
+    ],
+    deps = [
+        ":geojson_canonical",
+        ":geometry_difftest_support",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:mln-rs-geojson",
+        "@next_crates//:mln-rs-geojson-vt",
+        "@next_crates//:mln-rs-geometry",
+        "@next_crates//:mln-rs-kdbush",
+        "@next_crates//:mln-rs-polylabel",
+        "@next_crates//:mln-rs-supercluster",
+        "@next_crates//:serde_json",
+    ],
+)

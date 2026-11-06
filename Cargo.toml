@@ -1,0 +1,66 @@
+# The crates the difftests (difftest/, built with Bazel) use: the mln-rs
+# crates under test, all from one release, and the third-party crates the
+# tests use directly. Cargo only resolves and locks them: MODULE.bazel reads
+# this file and Cargo.lock into @next_crates. To test another release,
+# change every mln-rs-* entry below (`=<version>` from crates.io, or a git
+# commit of maplibre-native-next) and run `just update`.
+[package]
+name = "mln-rs-difftests"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+# v0.0.9 (louwers/maplibre-native-next@217beda), from git until crates.io
+# has every crate of it.
+mln-rs-actor = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-cheap-ruler = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-conversion = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-csscolorparser = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-earcut = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-earcut-test-fixtures = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-expression = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-feature = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-geojson = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-geojson-vt = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-geometry = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-gfx = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-kdbush = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-libstdcxx = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-map = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-map-types = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-math = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-nunicode = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-pixelmatch = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-polylabel = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-protozero = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-rapidjson = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-render-test = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-renderer = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-shelf-pack = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-sprite = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-storage = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-style = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-style-codegen = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-style-types = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-supercluster = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-text = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-tile = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-tile-id = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-util = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-vector-tile = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+mln-rs-wagyu = { git = "https://github.com/louwers/maplibre-native-next", rev = "217beda01707f2d9e0543f7e38ade57bd8fe3cc7" }
+
+# Evaluated as a replacement for mln-rs-earcut and rejected
+# (difftest/earcut_crate).
+earcut = { version = "0.4.5" }
+# The same features as mln-rs's: the zlib backend, so that util::compress
+# matches the C++.
+flate2 = { version = "1.1.11", default-features = false, features = ["zlib"] }
+harfrust = { version = "0.15.0" }
+proptest = { version = "1.12.0" }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "preserve_order"] }

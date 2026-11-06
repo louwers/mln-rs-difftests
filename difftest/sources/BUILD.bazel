@@ -1,0 +1,56 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+# Differential tests: the GeoJSON source (mln_style::sources) and the tile
+# pipeline (mln_renderer: TilePyramid, GeoJSONTileData) against the C++
+# core.
+
+# The oracle as a C++ executable (the thread pool and the Linux platform,
+# mbgl-default + platform/linux, link completely only into C++ executables);
+# sources_difftest.rs drives it over stdin/stdout.
+cc_binary(
+    name = "sources_oracle",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    srcs = ["oracle_main.cpp"],
+    # mbgl-core is built without RTTI; FakeTile derives from its classes.
+    copts = [
+        "-std=c++20",
+        "-fexceptions",
+        "-fno-rtti",
+    ],
+    # Dynamic mode, as cc_test links the C++ test binaries: mbgl-core and
+    # mbgl-default reference each other.
+    linkstatic = False,
+    deps = [
+        "@maplibre//:mbgl-core",
+        "@maplibre//platform/default:mbgl-default",
+        "@maplibre//platform/linux:impl",
+    ],
+)
+
+rust_test(
+    name = "sources_difftest",
+    # The oracle links the Linux platform (mbgl-default + platform/linux,
+    # GLX), so this comparison builds and runs on Linux only.
+    target_compatible_with = ["@platforms//os:linux"],
+    size = "medium",
+    srcs = ["sources_difftest.rs"],
+    data = [
+        ":sources_oracle",
+        "@maplibre//metrics:render-test-files",
+    ],
+    deps = [
+        "@next_crates//:mln-rs-actor",
+        "@next_crates//:mln-rs-conversion",
+        "@next_crates//:mln-rs-map",
+        "@next_crates//:mln-rs-map-types",
+        "@next_crates//:mln-rs-renderer",
+        "@next_crates//:mln-rs-style",
+        "@next_crates//:mln-rs-tile-id",
+        "@next_crates//:mln-rs-util",
+        "@next_crates//:mln-rs-feature",
+        "@next_crates//:serde_json",
+    ],
+)

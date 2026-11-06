@@ -1,0 +1,40 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+# libsqlite3-sys's bundled SQLite, with the flags its build.rs uses for a
+# bundled, non-wasm, non-sqlcipher build (difftest/sqlite/BUILD.bazel).
+cc_library(
+    name = "sqlite3",
+    srcs = ["sqlite3/sqlite3.c"],
+    hdrs = [
+        "sqlite3/sqlite3.h",
+        "sqlite3/sqlite3ext.h",
+    ],
+    copts = [
+        "-w",
+        "-DSQLITE_CORE",
+        "-DSQLITE_DEFAULT_FOREIGN_KEYS=1",
+        "-DSQLITE_ENABLE_API_ARMOR",
+        "-DSQLITE_ENABLE_COLUMN_METADATA",
+        "-DSQLITE_ENABLE_DBSTAT_VTAB",
+        "-DSQLITE_ENABLE_FTS3",
+        "-DSQLITE_ENABLE_FTS3_PARENTHESIS",
+        "-DSQLITE_ENABLE_FTS5",
+        "-DSQLITE_ENABLE_JSON1",
+        "-DSQLITE_ENABLE_LOAD_EXTENSION=1",
+        "-DSQLITE_ENABLE_RTREE",
+        "-DSQLITE_ENABLE_STAT4",
+        "-DSQLITE_SOUNDEX",
+        "-DSQLITE_THREADSAFE=1",
+        "-DSQLITE_USE_URI",
+        "-DHAVE_USLEEP=1",
+        "-DHAVE_ISNAN",
+        "-D_POSIX_THREAD_SAFE_FUNCTIONS",
+        "-DHAVE_LOCALTIME_R",
+    ],
+    linkopts = [
+        "-ldl",
+        "-lm",
+        "-lpthread",
+    ],
+    visibility = ["//visibility:public"],
+)
