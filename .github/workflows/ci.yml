@@ -61,7 +61,7 @@ jobs:
             libicu-dev libjpeg-dev libpng-dev libuv1-dev \
             libwebp-dev libx11-dev pkg-config zlib1g-dev
 
-      - uses: bazel-contrib/setup-bazel@0.19.1
+      - uses: bazel-contrib/setup-bazel@0.19.2
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
